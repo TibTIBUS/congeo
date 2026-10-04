@@ -8,6 +8,7 @@ Application mobile et ordinateur pour gérer les congés d’une petite équipe 
 - Demandes de jours ou de semaines, avec sélection du nom du salarié.
 - Onglet « Demandes de congés » partagé par l’équipe.
 - Administration à une adresse séparée, sans lien depuis l’espace salarié.
+- Onglet administrateur « Affiche QR » : aperçu, impression A4 et téléchargement du PDF pour la première connexion des salariés.
 - Une personne absente à la fois ; la gérante peut autoriser une deuxième personne, jamais une troisième.
 - Blocage de la semaine ISO n° 1 et des vacances de Noël, modifiable par la gérante.
 - Propositions alternatives avec accord du salarié et annulations soumises à validation.
