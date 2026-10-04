@@ -15,7 +15,7 @@
     "build:server": "node scripts/build-server.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "test": "node --experimental-strip-types tests/rules.mjs"
+    "test": "node --experimental-strip-types tests/rules.mjs && node scripts/test-admin.mjs"
   },
   "dependencies": {
     "@neon/functions": "0.8.0",

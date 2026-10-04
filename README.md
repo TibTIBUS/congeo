@@ -11,6 +11,7 @@ Application mobile et ordinateur pour gérer les congés d’une petite équipe 
 - Une personne absente à la fois ; la gérante peut autoriser une deuxième personne, jamais une troisième.
 - Blocage de la semaine ISO n° 1 et des vacances de Noël, modifiable par la gérante.
 - Propositions alternatives avec accord du salarié et annulations soumises à validation.
+- Les administrateurs peuvent modifier un congé validé (dates, précision, dérogation) ou le supprimer après confirmation. Les modifications restent validées et les conflits sont contrôlés.
 - Préférence pour les e-mails, envoi uniquement après configuration de l’expéditeur.
 - Pas de discussion ni de compteur de solde de congés dans cette V1.
 
@@ -74,7 +75,7 @@ Pour les e-mails, ajouter `RESEND_API_KEY` et `EMAIL_FROM` dans les variables pr
 2. Dans **Settings → Pages → Source**, choisir **GitHub Actions**.
 3. Dans **Actions**, lancer manuellement **Publier Congéo sur Pages**.
 
-Le workflow ne se déclenche pas à chaque push : la publication reste manuelle pour cette première mise en service. La base `/congeo/` et le manifeste mobile sont déjà configurés. Si le nom du dépôt ou le domaine change, adapter `VITE_BASE_PATH` et `ALLOWED_ORIGINS`.
+Le workflow publie les mises à jour de `main` automatiquement après les tests et la compilation. Un lancement manuel reste possible. La base `/congeo/` et le manifeste mobile sont déjà configurés. Si le nom du dépôt ou le domaine change, adapter `VITE_BASE_PATH` et `ALLOWED_ORIGINS`.
 
 L’espace salarié sera à `/congeo/`, l’administration à `/congeo/admin/`. En l’absence d’API configurée, l’application indique que le planning partagé n’est pas connecté et n’autorise pas la saisie de congés.
 

@@ -7,7 +7,7 @@ function changed(r:MutationResult){if(!r.meta.changes)throw Error('Cette demande
 async function all(sql:string,args:unknown[]=[]){return (await raw().prepare(sql).bind(...args).all<Row>()).results;}
 async function config(){const r=await all('SELECT * FROM settings');const s=Object.fromEntries(r.map(x=>[x.key,x.value]));return {firstWeek:s.firstWeek!=='false',blocksConfigured:s.blocksConfigured==='true'};}
 async function periods(){return (await config()).blocksConfigured?await all('SELECT * FROM blocks ORDER BY start'):defaultBlocks;}
-async function check(start:string,end:string,occupied=false){const days=workdays(start,end);if(start<today())throw Error('Choisissez une date à partir d’aujourd’hui.');const c=await config(),b=await periods();const bad=days.find(d=>blockedReason(d,b as any,c.firstWeek));if(bad)throw Error(`${bad} : ${blockedReason(bad,b as any,c.firstWeek)}. Choisissez une autre période.`);if(!occupied){const r=await all("SELECT days FROM requests WHERE status='approved'");if(r.some(x=>JSON.parse(x.days).some((d:string)=>days.includes(d))))throw Error('Une personne est déjà en congé sur cette période.');}return days;}
+async function check(start:string,end:string,occupied=false,allowPast=false){const days=workdays(start,end);if(!allowPast&&start<today())throw Error('Choisissez une date à partir d’aujourd’hui.');const c=await config(),b=await periods();const bad=days.find(d=>blockedReason(d,b as any,c.firstWeek));if(bad)throw Error(`${bad} : ${blockedReason(bad,b as any,c.firstWeek)}. Choisissez une autre période.`);if(!occupied){const r=await all("SELECT days FROM requests WHERE status='approved'");if(r.some(x=>JSON.parse(x.days).some((d:string)=>days.includes(d))))throw Error('Une personne est déjà en congé sur cette période.');}return days;}
 function fail(e:unknown){console.error('Planning',e);const m=e instanceof Error?e.message:'';return Response.json({error:/capacity/.test(m)?'Cette période est déjà occupée. Actualisez le planning.':/D1|SQLITE|database|binding|no such|constraint/i.test(m)?'Le planning est indisponible ou a changé. Actualisez et réessayez.':m||'Impossible d’enregistrer pour le moment.'},{status:400});}
 export async function GET(req:Request){try{const u=new URL(req.url),admin=u.searchParams.get('admin')==='1',actor=u.searchParams.get('employee')||'';
 const employees=await all('SELECT id,name,active FROM employees ORDER BY name');
@@ -22,6 +22,22 @@ if(p.action==='employee'){requireAdmin();const name=String(p.name||'').trim();if
 else if(p.action==='archive'){requireAdmin();await db.prepare('UPDATE employees SET active=? WHERE id=?').bind(p.active?1:0,p.id).run();}
 else if(p.action==='profile'){const email=String(p.email||'').trim();if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Vérifiez votre adresse e-mail.');if(p.notify&&!email)throw Error('Renseignez une adresse e-mail.');await db.prepare('UPDATE employees SET email=?,notify=? WHERE id=?').bind(email,p.notify?1:0,actor).run();}
 else if(p.action==='request'){const employee=admin?String(p.target):actor;if(!await db.prepare('SELECT id FROM employees WHERE id=? AND active=1').bind(employee).first())throw Error('Sélectionnez un salarié actif.');const override=admin&&p.override===true,days=await check(p.start,p.end,override);const r=await db.prepare("INSERT INTO requests (id,employee_id,start,end,days,status,note,created,override) SELECT ?,?,?,?,?,'pending',?,?,? WHERE ?=1 OR NOT EXISTS (SELECT 1 FROM requests r,json_each(r.days) d WHERE r.status='approved' AND d.value IN (SELECT value FROM json_each(?)))").bind(uuid(),employee,p.start,p.end,JSON.stringify(days),String(p.note||'').slice(0,1500),now(),override?1:0,override?1:0,JSON.stringify(days)).run();if(!r.meta.changes)throw Error('Ces dates viennent d’être validées pour un autre salarié.');}
+else if(['editApproved','deleteApproved'].includes(p.action)){
+ requireAdmin();
+ const r=await db.prepare('SELECT * FROM requests WHERE id=?').bind(p.id).first<Row>();
+ if(!r||r.status!=='approved')throw Error('Ce congé n’est plus validé. Actualisez le planning.');
+ if(p.originalStart!==r.start||p.originalEnd!==r.end)throw Error('Les dates de ce congé ont changé. Actualisez le planning avant de continuer.');
+ let body:string;
+ if(p.action==='editApproved'){
+  const days=await check(p.start,p.end,true,true);
+  await db.prepare("UPDATE requests SET start=?,end=?,days=?,override=?,answer=?,cancel_requested=0 WHERE id=? AND status='approved'").bind(p.start,p.end,JSON.stringify(days),p.override===true?1:0,String(p.answer||'').slice(0,1500),r.id).run().then(changed);
+  body=`La gérante a modifié vos congés validés du ${r.start} au ${r.end}. Nouvelles dates : du ${p.start} au ${p.end}. ${String(p.answer||'').slice(0,1500)}`;
+ }else{
+  await db.prepare("DELETE FROM requests WHERE id=? AND status='approved'").bind(r.id).run().then(changed);
+  body=`La gérante a supprimé vos congés validés du ${r.start} au ${r.end}. Ce congé ne figure plus sur le planning.`;
+ }
+ await queue(r.employee_id,body);
+}
 else if(['approve','refuse','propose','acceptProposal','declineProposal','cancel','confirmCancel'].includes(p.action)){const r=await db.prepare('SELECT * FROM requests WHERE id=?').bind(p.id).first<Row>();if(!r)throw Error('Demande introuvable.');if(!admin&&r.employee_id!==actor)throw Error('Cette demande appartient à un autre salarié.');let body='';
 if(p.action==='approve'){requireAdmin();if(r.status!=='pending')throw Error('Cette demande a déjà été traitée.');await check(r.start,r.end,true);await db.prepare("UPDATE requests SET status='approved',override=?,answer=? WHERE id=? AND status='pending'").bind(p.override?1:0,String(p.answer||'').slice(0,1500),r.id).run().then(changed);body=`Vos congés du ${r.start} au ${r.end} sont validés.`;}
 else if(p.action==='refuse'){requireAdmin();if(!['pending','proposed'].includes(r.status))throw Error('Cette demande a déjà été traitée.');await db.prepare("UPDATE requests SET status='refused',answer=?,proposed_start=NULL,proposed_end=NULL WHERE id=? AND status IN ('pending','proposed')").bind(String(p.answer||'').slice(0,1500),r.id).run().then(changed);body=`Votre demande du ${r.start} au ${r.end} est refusée. ${p.answer||''}`;}
