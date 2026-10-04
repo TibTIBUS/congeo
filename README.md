@@ -20,9 +20,11 @@ Application mobile et ordinateur pour gérer les congés d’une petite équipe 
 
 GitHub Pages ne peut pas exécuter l’API ni héberger la base. Aucun congé ou salarié n’est enregistré dans le dépôt GitHub ou dans le stockage du navigateur. Le navigateur ne conserve que le nom sélectionné sur cet appareil.
 
-Le code `server/` peut être déployé comme Neon Function (Node.js 24), ou sur un hébergeur Node.js compatible avec PostgreSQL. Les Neon Functions sont actuellement en beta dans la région `us-east-2`. Si la base doit se trouver en Europe, choisissez un hébergeur Node.js en Europe pour l’API, et gardez Neon pour la base européenne.
+Le code `server/` peut être déployé comme Neon Function (Node.js 24), ou sur un hébergeur Node.js compatible avec PostgreSQL. Neon Functions est disponible à Francfort (`aws-eu-central-1`) : l’API et la base de ce projet sont hébergées dans cette région.
 
-Cette importation contient uniquement le code et le schéma. Elle ne copie pas les données de l’application de démonstration, ne crée pas de projet Neon et ne déploie pas Pages.
+Le schéma a été installé sur les branches `dev-congeo-setup` et `production`. L’API `congeo` est déployée sur `production` et son URL publique figure dans `public/config.js`. Les données de démonstration n’ont pas été copiées. GitHub Pages reste à publier.
+
+Projet : `green-union-96090069` ; branche production : `br-fancy-boat-b2szvyhv` ; base : `neondb`.
 
 ## Installation et vérifications
 
@@ -54,11 +56,12 @@ Le serveur serialise les mutations avec un verrou de transaction PostgreSQL. La 
 
 ## Déployer le serveur sur Neon Functions
 
-Dans un projet de région `us-east-2`, avec le CLI Neon authentifié et lié au projet/à la branche :
+Pour mettre à jour l’API, avec le CLI Neon authentifié :
 
 ```sh
-neon functions deploy congeo --src server/index.ts --env ALLOWED_ORIGINS=https://tibtibus.github.io
-neon functions get congeo
+pnpm build:server
+neon functions deploy congeo --src dist-server/index.mjs --no-bundle --project-id green-union-96090069 --branch br-fancy-boat-b2szvyhv --env ALLOWED_ORIGINS=https://tibtibus.github.io
+neon functions get congeo --project-id green-union-96090069 --branch br-fancy-boat-b2szvyhv
 ```
 
 `DATABASE_URL` est injectée par Neon. Le serveur lit ses secrets depuis l’environnement. Pour un autre hébergeur Node.js, renseigner `DATABASE_URL` et `ALLOWED_ORIGINS` dans cet hébergeur.
@@ -67,7 +70,7 @@ Pour les e-mails, ajouter `RESEND_API_KEY` et `EMAIL_FROM` dans les variables pr
 
 ## Préparer GitHub Pages (à faire au moment du déploiement)
 
-1. Mettre l’URL publique de l’API dans la variable GitHub Actions `CONGEO_API_URL`, ou dans `public/config.js` (l’URL est publique, sans clé).
+1. L’URL de l’API est déjà renseignée dans `public/config.js` (publique, sans clé). Pour la changer, modifier ce fichier ; une variable GitHub Actions `CONGEO_API_URL` peut servir si le fichier laisse l’URL vide.
 2. Dans **Settings → Pages → Source**, choisir **GitHub Actions**.
 3. Dans **Actions**, lancer manuellement **Publier Congéo sur Pages**.
 
