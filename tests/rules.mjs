@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+import {translateSql} from '../server/db/raw.ts';
+import {workdays,weekNumber,weekPeriod,blockedReason,defaultBlocks} from '../src/lib/calendar.ts';
+assert.deepEqual(workdays('2026-10-05','2026-10-11'),['2026-10-05','2026-10-06','2026-10-07','2026-10-08','2026-10-09','2026-10-10']);
+assert.equal(weekNumber('2027-01-04'),1);assert.equal(weekNumber('2026-12-28'),53);assert.equal(weekNumber('2027-01-10'),1);assert.equal(weekNumber('2027-01-11'),2);
+assert.deepEqual(weekPeriod('2026-10-08'),{start:'2026-10-05',end:'2026-10-10'});
+assert.equal(blockedReason('2026-12-19',defaultBlocks,true),'Vacances de Noël · zone B');assert.equal(blockedReason('2027-01-04',defaultBlocks,true),'Semaine n° 1');assert.equal(blockedReason('2027-01-11',defaultBlocks,true),'');
+assert.throws(()=>workdays('2026-10-04','2026-10-04'));assert.throws(()=>workdays('2026-02-30','2026-03-02'));
+const db=new PGlite();await db.exec(await readFile(new URL('../drizzle/0000_chemical_silver_samurai.sql',import.meta.url),'utf8'));
+const query=(sql,args=[])=>db.query(translateSql(sql),args);
+const days=JSON.stringify(['2026-10-05','2026-10-06']);
+for(let i=1;i<=4;i++){await query('INSERT INTO employees (id,name) VALUES (?,?)',[String(i),'Salarié '+i]);await query("INSERT INTO requests (id,employee_id,start,end,days,created) VALUES (?,?,?,?,?,?)",[String(i),String(i),'2026-10-05','2026-10-06',days,'2026-10-04']);}
+await query("UPDATE requests SET status='approved' WHERE id='1'");
+await assert.rejects(()=>query("UPDATE requests SET status='approved' WHERE id='2'"),/capacity/);
+await query("UPDATE requests SET status='approved',override=1 WHERE id='2'");
+await query("UPDATE requests SET cancel_requested=1 WHERE id='1'");
+await assert.rejects(()=>query("UPDATE requests SET status='approved',override=1 WHERE id='3'"),/capacity/);
+const conflictingInsert=await query("INSERT INTO requests (id,employee_id,start,end,days,status,note,created,override) SELECT ?,?,?,?,?,'pending',?,?,? WHERE ?=1 OR NOT EXISTS (SELECT 1 FROM requests r,json_each(r.days) d WHERE r.status='approved' AND d.value IN (SELECT value FROM json_each(?)))",['5','3','2026-10-05','2026-10-06',days,'','2026-10-04',0,0,days]);assert.equal(conflictingInsert.affectedRows,0);
+await query("UPDATE requests SET status='cancelled' WHERE id='1'");await query("UPDATE requests SET status='approved',override=1 WHERE id='3'");
+await query("UPDATE requests SET status='cancelled' WHERE id='3'");await query("UPDATE requests SET employee_id='2' WHERE id='4'");await assert.rejects(()=>query("UPDATE requests SET status='approved',override=1 WHERE id='4'"),/capacity/);
+await query("INSERT INTO settings (key,value) VALUES ('firstWeek',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",['false']);assert.equal((await query('SELECT value FROM settings WHERE key=?',['firstWeek'])).rows[0].value,'false');
+await query('INSERT INTO blocks (id,label,start,end) VALUES (?,?,?,?)',['noel','Noël','2026-12-19','2027-01-03']);assert.equal((await query('SELECT * FROM blocks ORDER BY start')).rows[0].end,'2027-01-03');
+await db.close();console.log('Dates, semaines ISO, migration PostgreSQL, conflits, dérogations, annulations et requêtes vérifiés.');

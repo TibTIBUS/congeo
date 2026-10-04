@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.worker-build/
+.wrangler/
+.env*
+!.env.example
+*.tsbuildinfo
+worker/wrangler.jsonc
+worker/.dev.vars
+dist-server/
+.neon
+.pnpm-store/

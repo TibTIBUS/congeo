@@ -1,0 +1,3 @@
+import {createServer} from 'node:http';
+import handler from '../dist-server/index.mjs';
+createServer(async(req,res)=>{try{const chunks=[];for await(const chunk of req)chunks.push(chunk);const request=new Request('http://127.0.0.1:8788'+req.url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Buffer.concat(chunks)})});const result=await handler.fetch(request);res.writeHead(result.status,Object.fromEntries(result.headers));res.end(Buffer.from(await result.arrayBuffer()));}catch{res.writeHead(500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Service indisponible.'}));}}).listen(8788,'127.0.0.1',()=>console.log('Congéo API: http://127.0.0.1:8788'));

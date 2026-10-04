@@ -1,0 +1,9 @@
+trustLockfile: true
+strictDepBuilds: true
+allowBuilds:
+  esbuild: true
+  workerd: true
+storeDir: ${CONGEO_PNPM_STORE:-.pnpm-store}
+cacheDir: ${CONGEO_PNPM_STORE:-.pnpm-store}/policy-cache
+overrides:
+  miniflare>sharp: 0.35.4
