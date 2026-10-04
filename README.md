@@ -5,7 +5,7 @@ Application mobile et ordinateur pour gérer les congés d’une petite équipe 
 ## Version 1
 
 - Vue mensuelle et annuelle, dimanches en rouge, récapitulatif imprimable.
-- Demandes de jours ou de semaines, avec sélection du nom du salarié.
+- Demandes de jours ou de semaines, avec sélection du nom du salarié et du type « Congés » ou « Récupération ». Le type est conservé pour les futurs compteurs ; aucun calcul d’heures n’est effectué dans cette V1.
 - Onglet « Demandes de congés » partagé par l’équipe.
 - Administration à une adresse séparée, sans lien depuis l’espace salarié.
 - Onglet administrateur « Affiche QR » : aperçu, impression A4 et téléchargement du PDF pour la première connexion des salariés.

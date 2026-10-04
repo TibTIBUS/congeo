@@ -1,0 +1,2 @@
+ALTER TABLE "requests" ADD COLUMN "leave_type" text DEFAULT 'leave' NOT NULL;--> statement-breakpoint
+ALTER TABLE "requests" ADD CONSTRAINT "requests_leave_type_check" CHECK ("requests"."leave_type" in ('leave', 'recovery'));

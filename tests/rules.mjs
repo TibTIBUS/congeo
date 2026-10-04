@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readMigrationFiles} from 'drizzle-orm/migrator';
 import {PGlite} from '@electric-sql/pglite';
 import {translateSql} from '../server/db/raw.ts';
 import {workdays,weekNumber,weekPeriod,blockedReason,defaultBlocks} from '../src/lib/calendar.ts';
@@ -8,10 +8,13 @@ assert.equal(weekNumber('2027-01-04'),1);assert.equal(weekNumber('2026-12-28'),5
 assert.deepEqual(weekPeriod('2026-10-08'),{start:'2026-10-05',end:'2026-10-10'});
 assert.equal(blockedReason('2026-12-19',defaultBlocks,true),'Vacances de Noël · zone B');assert.equal(blockedReason('2027-01-04',defaultBlocks,true),'Semaine n° 1');assert.equal(blockedReason('2027-01-11',defaultBlocks,true),'');
 assert.throws(()=>workdays('2026-10-04','2026-10-04'));assert.throws(()=>workdays('2026-02-30','2026-03-02'));
-const db=new PGlite();await db.exec(await readFile(new URL('../drizzle/0000_chemical_silver_samurai.sql',import.meta.url),'utf8'));
+const db=new PGlite();for(const migration of readMigrationFiles({migrationsFolder:'drizzle'}))for(const sql of migration.sql)await db.exec(sql);
 const query=(sql,args=[])=>db.query(translateSql(sql),args);
 const days=JSON.stringify(['2026-10-05','2026-10-06']);
 for(let i=1;i<=4;i++){await query('INSERT INTO employees (id,name) VALUES (?,?)',[String(i),'Salarié '+i]);await query("INSERT INTO requests (id,employee_id,start,end,days,created) VALUES (?,?,?,?,?,?)",[String(i),String(i),'2026-10-05','2026-10-06',days,'2026-10-04']);}
+assert.equal((await query("SELECT leave_type FROM requests WHERE id='1'")).rows[0].leave_type,'leave');
+await assert.rejects(()=>query("UPDATE requests SET leave_type='invalid' WHERE id='1'"),/requests_leave_type_check/);
+await query("UPDATE requests SET leave_type='recovery' WHERE id='2'");
 await query("UPDATE requests SET status='approved' WHERE id='1'");
 await assert.rejects(()=>query("UPDATE requests SET status='approved' WHERE id='2'"),/capacity/);
 await query("UPDATE requests SET status='approved',override=1 WHERE id='2'");
