@@ -23,6 +23,14 @@ if(p.action==='employee'){requireAdmin();const name=String(p.name||'').trim();if
 else if(p.action==='archive'){requireAdmin();await db.prepare('UPDATE employees SET active=? WHERE id=?').bind(p.active?1:0,p.id).run();}
 else if(p.action==='profile'){const email=String(p.email||'').trim();if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Vérifiez votre adresse e-mail.');if(p.notify&&!email)throw Error('Renseignez une adresse e-mail.');await db.prepare('UPDATE employees SET email=?,notify=? WHERE id=?').bind(email,p.notify?1:0,actor).run();}
 else if(p.action==='request'){const employee=admin?String(p.target):actor;if(!await db.prepare('SELECT id FROM employees WHERE id=? AND active=1').bind(employee).first())throw Error('Sélectionnez un salarié actif.');const leaveType=parseLeaveType(p.leaveType),override=admin&&p.override===true,days=await check(p.start,p.end,override);const r=await db.prepare("INSERT INTO requests (id,employee_id,start,end,days,status,note,created,override,leave_type) SELECT ?,?,?,?,?,'pending',?,?,?,? WHERE ?=1 OR NOT EXISTS (SELECT 1 FROM requests r,json_each(r.days) d WHERE r.status='approved' AND d.value IN (SELECT value FROM json_each(?)))").bind(uuid(),employee,p.start,p.end,JSON.stringify(days),String(p.note||'').slice(0,1500),now(),override?1:0,leaveType,override?1:0,JSON.stringify(days)).run();if(!r.meta.changes)throw Error('Ces dates viennent d’être validées pour un autre salarié.');}
+else if(p.action==='deleteRequest'){
+ requireAdmin();
+ const r=await db.prepare('SELECT * FROM requests WHERE id=?').bind(p.id).first<Row>();
+ if(!r)throw Error('Cette demande a déjà été supprimée. Actualisez le planning.');
+ if(p.originalStart!==r.start||p.originalEnd!==r.end||p.originalStatus!==r.status)throw Error('Cette demande a changé. Actualisez le planning avant de la supprimer.');
+ await db.prepare('DELETE FROM requests WHERE id=? AND status=? AND start=? AND end=?').bind(r.id,r.status,r.start,r.end).run().then(changed);
+ await queue(r.employee_id,`La gérante a supprimé votre demande de ${leaveTypeLabel(r.leave_type).toLowerCase()} du ${r.start} au ${r.end}. Cette demande ne figure plus sur le planning.`);
+}
 else if(['editApproved','deleteApproved'].includes(p.action)){
  requireAdmin();
  const r=await db.prepare('SELECT * FROM requests WHERE id=?').bind(p.id).first<Row>();

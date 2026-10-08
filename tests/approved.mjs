@@ -56,4 +56,19 @@ const shared=await api.fetch(new Request('https://congeo.test/api/planning'));co
 assert.equal((await post({action:'request',employee:'c',start:later(4),end:later(4)})).status,200);
 assert.equal((await db.query("SELECT leave_type FROM requests WHERE employee_id='c' AND start=$1",[later(4)])).rows[0].leave_type,'leave');
 
+// Removing an erroneous request is admin-only for every status and checks stale data.
+for(const status of ['pending','proposed','refused','cancelled','approved']){
+ const id='delete-'+status;
+ await db.query('INSERT INTO requests (id,employee_id,start,"end",days,status,created,leave_type) VALUES ($1,$2,$3,$3,$4,$5,$6,$7)',[id,'a',later(5),JSON.stringify([later(5)]),status,'test','recovery']);
+ const removal={action:'deleteRequest',admin:true,id,originalStart:later(5),originalEnd:later(5),originalStatus:status};
+ assert.equal((await post({...removal,admin:false,employee:'a'})).status,400);
+ assert.equal((await post({...removal,originalStatus:'stale'})).status,400);
+ assert.equal((await post({...removal,originalEnd:later(6)})).status,400);
+ assert.equal((await db.query('SELECT id FROM requests WHERE id=$1',[id])).rows.length,1);
+ assert.equal((await post(removal)).status,200);
+ assert.equal((await db.query('SELECT id FROM requests WHERE id=$1',[id])).rows.length,0);
+ assert.equal((await post(removal)).status,400);
+}
+assert.equal((await db.query('SELECT id FROM employees')).rows.length,3);
+assert.equal((await db.query("SELECT id FROM requests WHERE id='r2'")).rows.length,1);
 await db.close();console.log('Approved leave edits, deletion, conflicts, override, stale dates, access checks and notifications passed.');
