@@ -1,4 +1,4 @@
-name: Publier Congéo sur Pages
+name: Redirection Congéo vers la V2
 on:
   workflow_dispatch:
   push:
@@ -11,31 +11,16 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '24'
-      - run: npm install --global pnpm@11.25.0
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm build
-        env:
-          VITE_API_URL: ${{ vars.CONGEO_API_URL }}
-          VITE_BASE_PATH: /congeo/
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
-        with:
-          path: dist
   deploy:
-    needs: build
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/configure-pages@983d7736d9b0ae728b81d479ce5d2cbfe887feff
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b6a5295c46f1c8b50a24
+        with:
+          path: redirect
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
