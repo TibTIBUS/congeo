@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Congéo — nouvelle adresse</title>
+<script>
+// Toute ancienne adresse V1 (sous-chemins compris) renvoie vers la V2.
+// Les anciennes pages « admin » arrivent sur l'admin V2 ; le reste sur l'accueil V2.
+var admin = /admin/i.test(location.pathname + location.hash);
+location.replace("https://tibtibus.github.io/congeo-v2/" + (admin ? "#/admin" : ""));
+</script>
+<meta http-equiv="refresh" content="0; url=https://tibtibus.github.io/congeo-v2/">
+</head>
+<body>
+<p>Congéo a déménagé. <a href="https://tibtibus.github.io/congeo-v2/">Ouvrir la nouvelle version</a>.</p>
+</body>
+</html>
